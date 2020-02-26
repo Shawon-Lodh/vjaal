@@ -1,6 +1,9 @@
 import string
 import random
 import pprint
+import json
+from util.file_processor import fileToDict
+
 
 bd_punctuation = string.punctuation + '।’॥‘'
 char_set_list = [
@@ -13,17 +16,23 @@ char_set_list = [
         ['ু','ূ']
     ]
 
+
 def get_words(filepath):
-    s = set()
-    with open(filepath, 'r') as fp:
-        for line in fp:
-            line = line.strip()
-            if line:
-                line = line.translate(line.maketrans('', '', bd_punctuation))
-                words = line.split() 
-                for word in words:
-                    s.add(word)
-    return list(s)
+    @fileToDict(filepath)
+    def load_10k(*args, **kwargs):
+        sl = args[0].strip().split()
+        return sl[0], None
+    d = load_10k()
+    return d.keys()
+
+
+def load_wrong_words(filepath):
+    @fileToDict(filepath)
+    def load_wrong_words(*args, **kwargs):
+        sl = args[0].strip().split()
+        return sl[0], sl[2]
+    return load_wrong_words()
+
 
 def word_vejal(word, ch_list):
     lword = list(word)
@@ -37,22 +46,36 @@ def word_vejal(word, ch_list):
     m = ''.join(lword)
     return m if m != word else None
 
-def vejal(word):
+
+def synthetic_word_corruption(word):
     vw = []
     for char_list in char_set_list:
         vw.append(word_vejal(word, char_list))
     return [w for w in vw if w != None]
 
-def gen_vejal(wordlist):
+
+def vejal(word):
+    manual_wrong_words = load_wrong_words('data/wrong_word.txt')
+    corrupted_words = []
+    corrupted_words = corrupted_words + synthetic_word_corruption(word)
+    x = manual_wrong_words.get(word, None)
+    z = [x] if x else []
+    corrupted_words = corrupted_words + z
+    # TODO: wiki wrong words list will be added here
+    return corrupted_words
+
+
+def gen_vejal(word_list):
     d = {}
-    for word in wordlist:
+    for word in word_list:
         d[word] = vejal(word)
     return d
 
+
 def main():
-    w = get_words('data.txt')
-    d = gen_vejal(w)
-    pprint.pprint(d)
+    wd = get_words('data/top_10k_sorted.txt')
+    wd = gen_vejal(wd)
+    pprint.pprint(wd)
 
 if __name__ == "__main__":
     main()
