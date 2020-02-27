@@ -2,19 +2,32 @@ import string
 import random
 import pprint
 import json
+
 from util.file_processor import fileToDict
 
 
-bd_punctuation = string.punctuation + '।’॥‘'
-char_set_list = [
+BD_PUNCTUATION = string.punctuation + '।’॥‘'
+EXP_LIST = {'্য': '{jfola}', '্র': '{rfola}'}
+BASE_CHAR_SET_LIST = [
         ['শ', 'ষ', 'স'],
         ['ই', 'ঈ'],
         ['ণ', 'ন'],
         ['জ', 'য'],
         ['ড়', 'র'],
-        ['ি','ী'],
-        ['ু','ূ']
+        ['ি', 'ী'],
+        ['ু', 'ূ'],
+        ['ো', '']
     ]
+
+
+def get_char_set(bcs, word):
+    ncs = []
+    for cs in bcs:
+        for c in cs:
+            if c in word:
+                ncs.append(cs)
+                break
+    return ncs
 
 
 def get_words(filepath):
@@ -34,48 +47,57 @@ def load_wrong_words(filepath):
     return load_wrong_words()
 
 
-def word_vejal(word, ch_list):
-    lword = list(word)
-    # find all location of sh
-    locations = [i for i, letter in enumerate(lword) if letter in ch_list]
-    # pick a randon char fron sh list
+def do_corruption(word, char_set):
+    exploded_word = list(word)
+    locations = [i for i, ch in enumerate(exploded_word) if ch in char_set]
     for index in locations:
-        rest = ch_list[:]
-        rest.remove(lword[index])
-        lword[index] = random.choice(rest)
-    m = ''.join(lword)
-    return m if m != word else None
+        r = char_set[:]
+        r.remove(exploded_word[index])
+        exploded_word[index] = random.choice(r)
+    imploded_word = ''.join(exploded_word)
+    return imploded_word if imploded_word != word else None
 
 
-def synthetic_word_corruption(word):
-    vw = []
-    for char_list in char_set_list:
-        vw.append(word_vejal(word, char_list))
-    return [w for w in vw if w != None]
+def synthetic_word_corruption(word, csl):
+    wl = [do_corruption(word, char_set) for char_set in csl]
+    return [w for w in wl if w is not None]
 
 
-def vejal(word):
-    manual_wrong_words = load_wrong_words('data/wrong_word.txt')
+def corrupt_word(word, csl, ww):
     corrupted_words = []
-    corrupted_words = corrupted_words + synthetic_word_corruption(word)
-    x = manual_wrong_words.get(word, None)
+    corrupted_words.extend(synthetic_word_corruption(word, csl))
+    x = ww.get(word, None)
     z = [x] if x else []
-    corrupted_words = corrupted_words + z
+    corrupted_words.extend(z)
     # TODO: wiki wrong words list will be added here
     return corrupted_words
 
 
-def gen_vejal(word_list):
-    d = {}
-    for word in word_list:
-        d[word] = vejal(word)
-    return d
+def preprocessor(word):
+    for k, v in EXP_LIST.items():
+        word = word.replace(k, v)
+    return word
+
+
+def postprocessor(words):
+    r = []
+    for w in words:
+        for k, v in EXP_LIST.items():
+            w = w.replace(v, k)
+        r.append(w)
+    return r
 
 
 def main():
     wd = get_words('data/top_10k_sorted.txt')
-    wd = gen_vejal(wd)
-    pprint.pprint(wd)
+    wrong_words = load_wrong_words('data/wrong_word.txt')
+    d = {}
+    for word in wd:
+        char_set_list = get_char_set(BASE_CHAR_SET_LIST, word)
+        d[word] = postprocessor(corrupt_word(preprocessor(word), char_set_list, wrong_words))
+    j = json.dumps(d, indent=4, ensure_ascii=False)
+    print(j)
+
 
 if __name__ == "__main__":
     main()
